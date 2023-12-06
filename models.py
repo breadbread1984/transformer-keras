@@ -3,7 +3,7 @@
 from os import environ
 environ['KERAS_BACKEND'] = 'tensorflow'
 import numpy as np
-import keras_core as K
+import keras as K
 
 def Attention(hidden_size, head_num, is_causal = False):
   inputs = K.Input((None, hidden_size)) # inputs.shape = (batch, seq_len, hidden_size)
