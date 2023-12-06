@@ -21,7 +21,7 @@ def CBlock(**kwargs):
     skip = results
     results = K.layers.BatchNormalization()(results)
     results = K.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same')(results)
-    results = K.layers.Conv3D(channel, kernel_size = (5,5,5), strides = (2,2,2), padding = 'same')(results)
+    results = K.layers.Conv3D(channel, kernel_size = (5,5,5), padding = 'same')(results)
     results = K.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same')(results)
     if drop_path_rate > 0:
         results = KCV.layers.DropPath(rate = drop_path_rate)(results)
