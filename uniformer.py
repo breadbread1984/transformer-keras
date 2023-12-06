@@ -45,11 +45,11 @@ def Uniformer(**kwargs):
     # args
     in_channel = kwargs.get('in_channel', 3)
     hidden_channels = kwargs.get('hidden_channels', [64,128,320,512])
+    mlp_ratio = kwargs.get('mlp_ratio', 4.)
     drop_rate = kwargs.get('drop_rate', 0.3)
     global_drop_path_rate = kwargs.get('global_drop_path_rate', 0.)
     depth = kwargs.get('depth', [5,8,20,7])
     assert len(hidden_channels) == len(depth)
-    mlp_ratio = kwargs.get('mlp_ratio', 4.)
     dpr = [x.item() for x in np.linspace(0, global_drop_path_rate, sum(depth))]
     # network
     inputs = K.Input((None, None, None, in_channel)) # inputs.shape = (batch, t, h, w, in_channel)
