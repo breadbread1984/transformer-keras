@@ -31,8 +31,8 @@ def CBlock(**kwargs):
 
     skip = results
     results = K.layers.BatchNormalization()(results)
-    results = K.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same', activation = K.activations.gelu)(results)
-    results = K.layers.Conv3D(channel * mlp_ratio, kernel_size = (1,1,1), padding = 'same')(results)
+    results = K.layers.Conv3D(channel * mlp_ratio, kernel_size = (1,1,1), padding = 'same', activation = K.activations.gelu)(results)
+    results = K.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same')(results)
     results = K.layers.Dropout(rate = drop_rate)(results)
     if drop_path_rate > 0:
         results = KCV.layers.DropPath(rate = drop_path_rate)(results)
@@ -45,10 +45,10 @@ def Uniformer(**kwargs):
     # args
     in_channel = kwargs.get('in_channel', 3)
     hidden_channels = kwargs.get('hidden_channels', [64,128,320,512])
+    depth = kwargs.get('depth', [5,8,20,7])
     mlp_ratio = kwargs.get('mlp_ratio', 4.)
     drop_rate = kwargs.get('drop_rate', 0.3)
     global_drop_path_rate = kwargs.get('global_drop_path_rate', 0.)
-    depth = kwargs.get('depth', [5,8,20,7])
     assert len(hidden_channels) == len(depth)
     dpr = [x.item() for x in np.linspace(0, global_drop_path_rate, sum(depth))]
     # network
@@ -57,5 +57,5 @@ def Uniformer(**kwargs):
     results = K.layers.LayerNormalization()(results)
     results = K.layers.Dropout(rate = drop_rate)(results)
     for i in range(depth[0]):
-        results = CBlock(channel = results.shape[-1], drop_path_rate = dpr[i], **kwargs)(results)
+        results = CBlock(channel = hidden_channel[0], drop_path_rate = dpr[i], **kwargs)(results)
     
