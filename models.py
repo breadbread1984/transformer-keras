@@ -16,7 +16,7 @@ def Attention(hidden_size, head_num, is_causal = False):
   k = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,2,1,3)))(k) # k.shape = (batch, head_num, seq_len, hidden_Size // head_num)
   v = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,2,1,3)))(v) # v.shape = (batch, head_num, seq_len, hidden_size // head_num)
   if is_causal:
-    mask = K.layers.Lambda(lambda x: (K.ops.expand_dims(K.ops.arange(K.ops.shape(x[1])[2]) + 1, axis = 1) > K.ops.expand_dims(K.ops.arange(K.ops.shape(x[1])[2]), axis = 0))[-K.ops.shape(x[0])[2]:,:])([q,k]) # mask.shape = (q_seq_len, k_seq_len)
+    mask = K.layers.Lambda(lambda x: K.ops.tril(K.ops.ones((K.ops.shape(x[1])[2], K.ops.shape(x[1])[2])))[-K.ops.shape(x[0])[2]:,:])([q, k]) # mask.shape = (q_seq_len, k_seq_len)
   else:
     mask = K.layers.Lambda(lambda x: K.ops.ones((K.ops.shape(x[0])[2], K.ops.shape(x[1])[2])))([q, k]) # mask.shape = (q_seq_len, k_seq_len)
   qk = K.layers.Lambda(lambda x: K.ops.matmul(x[0], K.ops.transpose(x[1], (0,1,3,2))))([q, k]) # qk.shape = (batch, head_num, q_seq_len, k_seq_len)
