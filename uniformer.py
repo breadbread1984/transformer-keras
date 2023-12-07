@@ -85,7 +85,20 @@ def SABlock(**kwargs):
     results = K.layers.Add()([skip, results])
     # attention between w and t
     skip = results
-    
+    results = K.layers.LayerNormalization()(results) # results.shape = (batch, T, H, W, channel)
+    results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,2,3,1,4)))(results) # results.shape = (batch, H, W, T, channel)
+    shape3 = K.layers.Lambda(lambda x: K.ops.shape(x))(results)
+    results = K.layers.Lambda(lambda x: K.ops.reshape(x, (K.ops.shape(x)[0] * K.ops.shape(x)[1],
+                                                          K.ops.shape(x)[2] * K.ops.shape(x)[3],
+                                                          K.ops.shape(x)[4])))(results) # results.shape = (batch * H, W * T, channel)
+    results = K.layers.Dense(channel * 3, use_bias = qkv_bias)(results) # results.shape = (batch * H, W * T, channel * 3)
+    q, k, v = K.layers.Lambda(lambda x, d: (x[...,0:d], x[...,d:2*d], x[...,2*d:3*d]), arguments = {'d': channel})(results)
+    results = K.layers.MultiHeadAttention(num_heads = num_heads, key_dim = channel // num_heads, dropout = drop_rate, use_bias = qkv_bias)(query = q, value = v, key = k) # results.shape = (batch * H, W * T, channel)
+    results = KCV.layers.DropPath(rate = drop_path_rate)(results)
+    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]))([results, shape3]) # results.shape = (batch, H, W, T, channel)
+    results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,3,1,2,4)))(results) # results.shape = (batch, T, H, W, channel)
+    results = K.layers.Add()([skip, results])
+    return K.Model(inputs = inputs, outputs = results)
 
 def Uniformer(**kwargs):
     # args
