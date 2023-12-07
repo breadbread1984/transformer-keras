@@ -134,23 +134,23 @@ def Uniformer(**kwargs):
     results = tf.keras.layers.Dropout(rate = drop_rate)(results)
     # block 1
     for i in range(depth[0]):
-        results = CBlock(channel = hidden_channels[0], drop_path_rate = dpr[i], name = 'block1_%d' % i, **kwargs)(results)
+        results = CBlock(channel = hidden_channels[0], drop_path_rate = dpr[i], **kwargs)(results)
     results = tf.keras.layers.Conv3D(hidden_channels[1], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same')(results) # results.shape = (batch, t / 8, h / 8, w / 8, hidden_channels[1])
     results = tf.keras.layers.LayerNormalization()(results)
     # block 2
     for i in range(depth[1]):
-        results = CBlock(channel = hidden_channels[1], drop_path_rate = dpr[i], name = 'block2_%d' % i, **kwargs)(results)
+        results = CBlock(channel = hidden_channels[1], drop_path_rate = dpr[i], **kwargs)(results)
     results = tf.keras.layers.Conv3D(hidden_channels[2], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same')(results) # results.shape = (batch, t / 16, h / 16, w / 16, hidden_channels[2])
     results = tf.keras.layers.LayerNormalization()(results)
     # do attention only when the feature shape is small enough
     # block 3
     for i in range(depth[2]):
-        results = SABlock(channel = hidden_channels[2], drop_path_rate = dpr[i], qkv_bias = qkv_bias, num_heads = num_heads, name = 'block3_%d' % i, **kwargs)(results)
+        results = SABlock(channel = hidden_channels[2], drop_path_rate = dpr[i], qkv_bias = qkv_bias, num_heads = num_heads, **kwargs)(results)
     results = tf.keras.layers.Conv3D(hidden_channels[3], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same')(results) # results.shape = (batch, t / 32, h / 32, w / 32, hidden_channels[3])
     results = tf.keras.layers.LayerNormalization()(results)
     # block 4
     for i in range(depth[3]):
-        results = SABlock(channel = hidden_channels[3], drop_path_rate = dpr[i], qkv_bias = qkv_bias, num_heads = num_heads, name = 'block4_%d % i', **kwargs)(results)
+        results = SABlock(channel = hidden_channels[3], drop_path_rate = dpr[i], qkv_bias = qkv_bias, num_heads = num_heads, **kwargs)(results)
     results = tf.keras.layers.BatchNormalization()(results) # results.shape = (batch, t / 32, h / 32, w / 32, hidden_channels[3])
     if out_channel is not None:
         results = tf.keras.layers.Dense(out_channel, activation = tf.keras.activations.tanh)(results) # results.shape = (batch, t / 32, h / 32, w / 32, out_channel)
@@ -158,17 +158,7 @@ def Uniformer(**kwargs):
     return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
 
 if __name__ == "__main__":
-    inputs = np.random.normal(size = (4,16,768))
-    attn = Attention(channel = 768, num_heads = 8, qkv_bias = False)
-    outputs = attn(inputs)
-    print(outputs.shape)
-    exit()
-    inputs = np.random.normal(size = (1,4,4,4,768))
-    sablock = SABlock(channel = 768, drop_path_rate = 0, qkv_bias = False, num_heads = 8)
-    sablock.save('sablock.keras')
-    results = sablock(inputs)
-    print(results.shape)
-    exit()
+    inputs = np.random.normal(size = (1,64,64,64,3))
     uniformer = Uniformer(in_channel = 3, out_channel = 100)
     uniformer.save('uniformer.keras')
     outputs = uniformer(inputs)
