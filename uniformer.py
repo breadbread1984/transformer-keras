@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from os import environ
-environ['KERAS_BACKEND'] = 'tensorflow'
+environ['KERAS_BACKEND'] = 'jax'
 import numpy as np
 import keras as K
 import keras_cv as KCV
@@ -77,41 +77,40 @@ def SABlock(**kwargs):
     pos_embed = K.layers.Conv3D(channel, kernel_size = (3,3,3), padding = 'same')(inputs)
     results = K.layers.Add()([skip, pos_embed])
     # attention between h and w
-    b = K.layers.Lambda(lambda x: K.ops.shape(x)[0])(results)
-    t = K.layers.Lambda(lambda x: K.ops.shape(x)[1])(results)
-    h = K.layers.Lambda(lambda x: K.ops.shape(x)[2])(results)
-    w = K.layers.Lambda(lambda x: K.ops.shape(x)[3])(results)
     skip = results
     results = K.layers.LayerNormalization()(results) # results.shape = (batch, T, H, W, channel)
+    shape1 = K.layers.Lambda(lambda x: K.ops.shape(x))(results)
     results = K.layers.Lambda(lambda x: K.ops.reshape(x, (K.ops.shape(x)[0] * K.ops.shape(x)[1],
                                                           K.ops.shape(x)[2] * K.ops.shape(x)[3],
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * T, H * W, channel)
     results = Attention(**kwargs)(results)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
-    results = K.layers.Lambda(lambda x, d: K.ops.reshape(x[0], (x[1], x[2], x[3], x[4], d)), arguments = {'d': channel})([results, b, t, h, w]) # results.shape = (batch, T, H, W, channel)
+    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]))([results, shape1]) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Add()([skip, results])
     # attention between t and h
     skip = results
     results = K.layers.LayerNormalization()(results) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,3,1,2,4)))(results) # results.shape = (batch, W, T, H, channel)
+    shape2 = K.layers.Lambda(lambda x: K.ops.shape(x))(results)
     results = K.layers.Lambda(lambda x: K.ops.reshape(x, (K.ops.shape(x)[0] * K.ops.shape(x)[1],
                                                           K.ops.shape(x)[2] * K.ops.shape(x)[3],
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * W, T * H, channel)
     results = Attention(**kwargs)(results)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
-    results = K.layers.Lambda(lambda x, d: K.ops.reshape(x[0], (x[1], x[2], x[3], x[4], d)), arguments = {'d': channel})([results, b, w, t, h]) # results.shape = (batch, W, T, H, channel)
+    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]))([results, shape2]) # results.shape = (batch, W, T, H, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,2,3,1,4)))(results) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Add()([skip, results])
     # attention between w and t
     skip = results
     results = K.layers.LayerNormalization()(results) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,2,3,1,4)))(results) # results.shape = (batch, H, W, T, channel)
+    shape3 = K.layers.Lambda(lambda x: K.ops.shape(x))(results)
     results = K.layers.Lambda(lambda x: K.ops.reshape(x, (K.ops.shape(x)[0] * K.ops.shape(x)[1],
                                                           K.ops.shape(x)[2] * K.ops.shape(x)[3],
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * H, W * T, channel)
     results = Attention(**kwargs)(results)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
-    results = K.layers.Lambda(lambda x, d: K.ops.reshape(x[0], (x[1], x[2], x[3], x[4], d)), arguments = {'d': channel})([results, b, h, w, t]) # results.shape = (batch, H, W, T, channel)
+    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]))([results, shape3]) # results.shape = (batch, H, W, T, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,3,1,2,4)))(results) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Add()([skip, results])
     return K.Model(inputs = inputs, outputs = results)
@@ -160,6 +159,11 @@ def Uniformer(**kwargs):
     return K.Model(inputs = inputs, outputs = results)
 
 if __name__ == "__main__":
+    inputs = np.random.normal(size = (1,4,4,4,768))
+    sablock = SABlock(channel = 768, drop_path_rate = 0, qkv_bias = False, num_heads = 8)
+    sablock.save('sablock.keras')
+    results = sablock(inputs)
+    print(results.shape)
     inputs = np.random.normal(size = (1,64,64,64,3))
     uniformer = Uniformer(in_channel = 3, out_channel = 100)
     uniformer.save('uniformer.keras')
