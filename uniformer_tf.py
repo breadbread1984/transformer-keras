@@ -38,7 +38,7 @@ def CBlock(**kwargs):
     else:
         results = tf.keras.layers.Identity()(results)
     results = tf.keras.layers.Add()([skip, results])
-    return tf.keras.Model(inputs = inputs, outputs = results)
+    return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
 
 def Attention(**kwargs):
     # args
@@ -59,7 +59,7 @@ def Attention(**kwargs):
     qkv = tf.keras.layers.Lambda(lambda x: tf.transpose(tf.matmul(x[0], x[1]), (0, 2, 1, 3)))([attn, v]) # qkv.shape = (b, s, h, c // h)
     results = tf.keras.layers.Dense(channel, use_bias = qkv_bias)(qkv)
     results = tf.keras.layers.Dropout(rate = drop_rate)(results)
-    return tf.keras.Model(inputs = inputs, outputs = results)
+    return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
 
 def SABlock(**kwargs):
     # args
@@ -111,7 +111,7 @@ def SABlock(**kwargs):
     results = tf.keras.layers.Lambda(lambda x: tf.reshape(x[0], x[1]), output_shape = (None, None, None, channel))([results, shape3]) # results.shape = (batch, H, W, T, channel)
     results = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,3,1,2,4)))(results) # results.shape = (batch, T, H, W, channel)
     results = tf.keras.layers.Add()([skip, results])
-    return tf.keras.Model(inputs = inputs, outputs = results)
+    return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
 
 def Uniformer(**kwargs):
     # args
@@ -154,7 +154,7 @@ def Uniformer(**kwargs):
     if out_channel is not None:
         results = tf.keras.layers.Dense(out_channel, activation = tf.keras.activations.tanh)(results) # results.shape = (batch, t / 32, h / 32, w / 32, out_channel)
     results = tf.keras.layers.Lambda(lambda x: tf.mean(x, axis = (1,2,3)))(results) # results.shape = (batch, out_channel)
-    return tf.keras.Model(inputs = inputs, outputs = results)
+    return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
 
 if __name__ == "__main__":
     inputs = np.random.normal(size = (1,4,4,4,768))
