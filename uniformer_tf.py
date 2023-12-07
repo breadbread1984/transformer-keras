@@ -57,6 +57,7 @@ def Attention(**kwargs):
     attn = tf.keras.layers.Softmax(axis = -1)(qk)
     attn = tf.keras.layers.Dropout(rate = drop_rate)(attn)
     qkv = tf.keras.layers.Lambda(lambda x: tf.transpose(tf.matmul(x[0], x[1]), (0, 2, 1, 3)))([attn, v]) # qkv.shape = (b, s, h, c // h)
+    qkv = tf.keras.layers.Reshape((-1, channel))(qkv)
     results = tf.keras.layers.Dense(channel, use_bias = qkv_bias)(qkv)
     results = tf.keras.layers.Dropout(rate = drop_rate)(results)
     return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
@@ -157,6 +158,11 @@ def Uniformer(**kwargs):
     return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
 
 if __name__ == "__main__":
+    inputs = np.random.normal(size = (4,16,768))
+    attn = Attention(channel = 768, num_heads = 8, qkv_bias = False)
+    outputs = attn(inputs)
+    print(outputs.shape)
+    exit()
     inputs = np.random.normal(size = (1,4,4,4,768))
     sablock = SABlock(channel = 768, drop_path_rate = 0, qkv_bias = False, num_heads = 8)
     sablock.save('sablock.keras')
