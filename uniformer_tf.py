@@ -159,7 +159,7 @@ def Uniformer(**kwargs):
 if __name__ == "__main__":
     inputs = np.random.normal(size = (1,4,4,4,768))
     sablock = SABlock(channel = 768, drop_path_rate = 0, qkv_bias = False, num_heads = 8)
-    sablock.save('sablock.h5')
+    sablock.save('sablock.keras')
     results = sablock(inputs)
     print(results.shape)
     exit()
