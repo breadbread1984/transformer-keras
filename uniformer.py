@@ -14,10 +14,11 @@ def CBlock(**kwargs):
     drop_rate = kwargs.get('drop_rate', 0.)
     # network
     inputs = K.Input((None, None, None, channel))
+    # positional embedding
     skip = inputs
     pos_embed = K.layers.Conv3D(channel, kernel_size = (3,3,3), padding = 'same')(inputs)
     results = K.layers.Add()([skip, pos_embed])
-
+    # attention
     skip = results
     results = K.layers.BatchNormalization()(results)
     results = K.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same')(results)
@@ -28,7 +29,7 @@ def CBlock(**kwargs):
     else:
         results = K.layers.Identity()(results)
     results = K.layers.Add()([skip, results])
-
+    # mlp
     skip = results
     results = K.layers.BatchNormalization()(results)
     results = K.layers.Conv3D(channel * mlp_ratio, kernel_size = (1,1,1), padding = 'same', activation = K.activations.gelu)(results)
@@ -40,6 +41,23 @@ def CBlock(**kwargs):
         results = K.layers.Identity()(results)
     results = K.layers.Add()([skip, results])
     return K.Model(inputs = inputs, outputs = results)
+
+def Attention(**kwargs):
+    inputs = K.Input((None, ))
+
+def SABlock(**kwargs):
+    # args
+    channel = kwargs.get('channel', 768)
+    # network
+    inputs = K.Input((None, None, None, channel))
+    # positional embedding
+    skip = inputs
+    pos_embed = K.layers.Conv3D(channel, kernel_size = (3,3,3), padding = 'same')(inputs)
+    results = K.layers.Add()([skip, pos_embed])
+    # attention
+    skip = results
+    results = K.layers.LayerNormalization()(results)
+
 
 def Uniformer(**kwargs):
     # args
@@ -67,3 +85,11 @@ def Uniformer(**kwargs):
     results = K.layers.Conv3D(hidden_channels[1], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same')(results) # results.shape = (batch, t / 16, h / 16, w / 16, hidden_channels[1])
     results = K.layers.LayerNormalization()(results)
     # block 3
+    for i in range(depth[2]):
+        results = SABlock(channel = hidden_channel[2], drop_path_rate = dpr[i], **kwargs)(results)
+    results = K.layers.Conv3D(hidden_channels[2], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same')(results) # results.shape = (batch, t / 32, h / 32, w / 32, hidden_channels[2])
+    results = K.layers.LayerNormalization()(results)
+    # block 4
+    for i in range(depth[3]):
+        results = SABlock(channel = hidden_channel[3], drop_path_rate = dpr[i], **kwargs)(results)
+    results = K.layers.BatchNormalization()(results)
