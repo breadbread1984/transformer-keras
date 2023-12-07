@@ -59,6 +59,7 @@ def Attention(**kwargs):
     attn = K.layers.Softmax(axis = -1)(qk)
     attn = K.layers.Dropout(rate = drop_rate)(attn)
     qkv = K.layers.Lambda(lambda x: K.ops.transpose(K.ops.matmul(x[0], x[1]), (0, 2, 1, 3)))([attn, v]) # qkv.shape = (b, s, h, c // h)
+    qkv = K.layers.Reshape((-1, channel))(qkv)
     results = K.layers.Dense(channel, use_bias = qkv_bias)(qkv)
     results = K.layers.Dropout(rate = drop_rate)(results)
     return K.Model(inputs = inputs, outputs = results)
