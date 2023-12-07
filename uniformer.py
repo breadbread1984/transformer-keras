@@ -108,6 +108,8 @@ def Uniformer(**kwargs):
     mlp_ratio = kwargs.get('mlp_ratio', 4.)
     drop_rate = kwargs.get('drop_rate', 0.3)
     global_drop_path_rate = kwargs.get('global_drop_path_rate', 0.)
+    qkv_bias = kwargs.get('qkv_bias', False)
+    num_heads = kwargs.get('num_heads', 8)
     assert len(hidden_channels) == len(depth)
     dpr = [x.item() for x in np.linspace(0, global_drop_path_rate, sum(depth))]
     # network
@@ -125,12 +127,14 @@ def Uniformer(**kwargs):
         results = CBlock(channel = hidden_channel[1], drop_path_rate = dpr[i], **kwargs)(results)
     results = K.layers.Conv3D(hidden_channels[1], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same')(results) # results.shape = (batch, t / 16, h / 16, w / 16, hidden_channels[1])
     results = K.layers.LayerNormalization()(results)
+    # do attention only when the feature shape is small enough
     # block 3
     for i in range(depth[2]):
-        results = SABlock(channel = hidden_channel[2], drop_path_rate = dpr[i], **kwargs)(results)
+        results = SABlock(channel = hidden_channel[2], drop_path_rate = dpr[i], qkv_bias = qkv_bias, num_heads = num_heads, **kwargs)(results)
     results = K.layers.Conv3D(hidden_channels[2], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same')(results) # results.shape = (batch, t / 32, h / 32, w / 32, hidden_channels[2])
     results = K.layers.LayerNormalization()(results)
     # block 4
     for i in range(depth[3]):
-        results = SABlock(channel = hidden_channel[3], drop_path_rate = dpr[i], **kwargs)(results)
+        results = SABlock(channel = hidden_channel[3], drop_path_rate = dpr[i], qkv_bias = qkv_bias, num_heads = num_heads, **kwargs)(results)
     results = K.layers.BatchNormalization()(results)
+    
