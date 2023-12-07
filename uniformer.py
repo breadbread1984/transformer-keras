@@ -85,7 +85,7 @@ def SABlock(**kwargs):
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * T, H * W, channel)
     results = Attention(**kwargs)(results)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
-    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]))([results, shape1]) # results.shape = (batch, T, H, W, channel)
+    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]), output_shape = (None, None, None, channel))([results, shape1]) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Add()([skip, results])
     # attention between t and h
     skip = results
@@ -97,7 +97,7 @@ def SABlock(**kwargs):
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * W, T * H, channel)
     results = Attention(**kwargs)(results)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
-    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]))([results, shape2]) # results.shape = (batch, W, T, H, channel)
+    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]), output_shape = (None, None, None, channel))([results, shape2]) # results.shape = (batch, W, T, H, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,2,3,1,4)))(results) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Add()([skip, results])
     # attention between w and t
@@ -110,7 +110,7 @@ def SABlock(**kwargs):
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * H, W * T, channel)
     results = Attention(**kwargs)(results)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
-    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]))([results, shape3]) # results.shape = (batch, H, W, T, channel)
+    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]), output_shape = (None, None, None, channel))([results, shape3]) # results.shape = (batch, H, W, T, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,3,1,2,4)))(results) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Add()([skip, results])
     return K.Model(inputs = inputs, outputs = results)
