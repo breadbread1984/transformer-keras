@@ -42,6 +42,27 @@ def CBlock(**kwargs):
     results = K.layers.Add()([skip, results])
     return K.Model(inputs = inputs, outputs = results)
 
+def Attention(**kwargs):
+    # args
+    channel = kwargs.get('channel', 768)
+    num_heads = kwargs.get('num_heads', 8)
+    qkv_bias = kwargs.get('qkv_bias', False)
+    drop_rate = kwargs.get('drop_rate', 0.3)
+    assert channel % num_heads == 0
+    # network
+    inputs = K.Input((None, channel)) # inputs.shape = (b, s, c)
+    results = K.layers.Dense(channel * 3, use_bias = qkv_bias)(inputs) # results.shape = (b, s, 3c)
+    results = K.layers.Reshape((-1, 3, num_heads, channel // num_heads))(results) # results.shape = (b, s, 3, h, c // h)
+    results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,2,3,1,4)))(results) # results.shape = (b, 3, h, s, c // h)
+    q, k, v = K.layers.Lambda(lambda x: (x[:,0,...], x[:,1,...], x[:,2,...]))(results) # q.shape = (b, h, s, c // h)
+    qk = K.layers.Lambda(lambda x, s: K.ops.matmul(x[0], K.ops.transpose(x[1], (0,1,3,2))) * s, arguments = {'s': (channel // num_heads) ** -0.5})([q, k]) # qk.shape = (b, h, s, s)
+    attn = K.layers.Softmax(axis = -1)(qk)
+    attn = K.layers.Dropout(rate = drop_rate)(attn)
+    qkv = K.layers.Lambda(lambda x: K.ops.transpose(K.ops.matmul(x[0], x[1]), (0, 2, 1, 3)))([attn, v]) # qkv.shape = (b, s, h, c // h)
+    results = K.layers.Dense(channel, use_bias = qkv_bias)(qkv)
+    results = K.layers.Dropout(rate = drop_rate)(results)
+    return K.Model(inputs = inputs, outputs = results)
+
 def SABlock(**kwargs):
     # args
     channel = kwargs.get('channel', 768)
@@ -65,9 +86,7 @@ def SABlock(**kwargs):
     results = K.layers.Lambda(lambda x: K.ops.reshape(x, (K.ops.shape(x)[0] * K.ops.shape(x)[1],
                                                           K.ops.shape(x)[2] * K.ops.shape(x)[3],
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * T, H * W, channel)
-    results = K.layers.Dense(channel * 3, use_bias = qkv_bias)(results) # results.shape = (batch * T, H * W, channel * 3)
-    q, k, v = K.layers.Lambda(lambda x, d: (x[...,0:d], x[...,d:2*d], x[...,2*d:3*d]), arguments = {'d': channel})(results)
-    results = K.layers.MultiHeadAttention(num_heads = num_heads, key_dim = channel // num_heads, dropout = drop_rate, use_bias = qkv_bias)(query = q, value = v, key = k) # results.shape = (batch * T, H * W, channel)
+    results = Attention(**kwargs)(results)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
     results = K.layers.Lambda(lambda x, d: K.ops.reshape(x[0], (x[1], x[2], x[3], x[4], d)), arguments = {'d': channel})([results, b, t, h, w]) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Add()([skip, results])
@@ -78,9 +97,7 @@ def SABlock(**kwargs):
     results = K.layers.Lambda(lambda x: K.ops.reshape(x, (K.ops.shape(x)[0] * K.ops.shape(x)[1],
                                                           K.ops.shape(x)[2] * K.ops.shape(x)[3],
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * W, T * H, channel)
-    results = K.layers.Dense(channel * 3, use_bias = qkv_bias)(results) # results.shape = (batch * W, T * H, channel * 3)
-    q, k, v = K.layers.Lambda(lambda x, d: (x[...,0:d], x[...,d:2*d], x[...,2*d:3*d]), arguments = {'d': channel})(results)
-    results = K.layers.MultiHeadAttention(num_heads = num_heads, key_dim = channel // num_heads, dropout = drop_rate, use_bias = qkv_bias)(query = q, value = v, key = k) # results.shape = (batch * W, T * H, channel)
+    results = Attention(**kwargs)(results)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
     results = K.layers.Lambda(lambda x, d: K.ops.reshape(x[0], (x[1], x[2], x[3], x[4], d)), arguments = {'d': channel})([results, b, w, t, h]) # results.shape = (batch, W, T, H, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,2,3,1,4)))(results) # results.shape = (batch, T, H, W, channel)
@@ -92,9 +109,7 @@ def SABlock(**kwargs):
     results = K.layers.Lambda(lambda x: K.ops.reshape(x, (K.ops.shape(x)[0] * K.ops.shape(x)[1],
                                                           K.ops.shape(x)[2] * K.ops.shape(x)[3],
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * H, W * T, channel)
-    results = K.layers.Dense(channel * 3, use_bias = qkv_bias)(results) # results.shape = (batch * H, W * T, channel * 3)
-    q, k, v = K.layers.Lambda(lambda x, d: (x[...,0:d], x[...,d:2*d], x[...,2*d:3*d]), arguments = {'d': channel})(results)
-    results = K.layers.MultiHeadAttention(num_heads = num_heads, key_dim = channel // num_heads, dropout = drop_rate, use_bias = qkv_bias)(query = q, value = v, key = k) # results.shape = (batch * H, W * T, channel)
+    results = Attention(**kwargs)(results)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
     results = K.layers.Lambda(lambda x, d: K.ops.reshape(x[0], (x[1], x[2], x[3], x[4], d)), arguments = {'d': channel})([results, b, h, w, t]) # results.shape = (batch, H, W, T, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,3,1,2,4)))(results) # results.shape = (batch, T, H, W, channel)
@@ -148,5 +163,5 @@ if __name__ == "__main__":
     inputs = np.random.normal(size = (1,64,64,64,3))
     uniformer = Uniformer(in_channel = 3, out_channel = 100)
     uniformer.save('uniformer.keras')
-    outputs = uniformer(inputs)
+    outputs = uniformer(inputs = inputs)
     print(outputs.shape)
