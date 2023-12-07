@@ -56,9 +56,12 @@ def SABlock(**kwargs):
     pos_embed = K.layers.Conv3D(channel, kernel_size = (3,3,3), padding = 'same')(inputs)
     results = K.layers.Add()([skip, pos_embed])
     # attention between h and w
+    b = K.layers.Lambda(lambda x: K.ops.shape(x)[0])(results)
+    t = K.layers.Lambda(lambda x: K.ops.shape(x)[1])(results)
+    h = K.layers.Lambda(lambda x: K.ops.shape(x)[2])(results)
+    w = K.layers.Lambda(lambda x: K.ops.shape(x)[3])(results)
     skip = results
     results = K.layers.LayerNormalization()(results) # results.shape = (batch, T, H, W, channel)
-    shape1 = K.layers.Lambda(lambda x: K.ops.shape(x))(results)
     results = K.layers.Lambda(lambda x: K.ops.reshape(x, (K.ops.shape(x)[0] * K.ops.shape(x)[1],
                                                           K.ops.shape(x)[2] * K.ops.shape(x)[3],
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * T, H * W, channel)
@@ -66,13 +69,12 @@ def SABlock(**kwargs):
     q, k, v = K.layers.Lambda(lambda x, d: (x[...,0:d], x[...,d:2*d], x[...,2*d:3*d]), arguments = {'d': channel})(results)
     results = K.layers.MultiHeadAttention(num_heads = num_heads, key_dim = channel // num_heads, dropout = drop_rate, use_bias = qkv_bias)(query = q, value = v, key = k) # results.shape = (batch * T, H * W, channel)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
-    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]))([results, shape1]) # results.shape = (batch, T, H, W, channel)
+    results = K.layers.Lambda(lambda x, d: K.ops.reshape(x[0], (x[1], x[2], x[3], x[4], d)), arguments = {'d': channel})([results, b, t, h, w]) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Add()([skip, results])
     # attention between t and h
     skip = results
     results = K.layers.LayerNormalization()(results) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,3,1,2,4)))(results) # results.shape = (batch, W, T, H, channel)
-    shape2 = K.layers.Lambda(lambda x: K.ops.shape(x))(results)
     results = K.layers.Lambda(lambda x: K.ops.reshape(x, (K.ops.shape(x)[0] * K.ops.shape(x)[1],
                                                           K.ops.shape(x)[2] * K.ops.shape(x)[3],
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * W, T * H, channel)
@@ -80,14 +82,13 @@ def SABlock(**kwargs):
     q, k, v = K.layers.Lambda(lambda x, d: (x[...,0:d], x[...,d:2*d], x[...,2*d:3*d]), arguments = {'d': channel})(results)
     results = K.layers.MultiHeadAttention(num_heads = num_heads, key_dim = channel // num_heads, dropout = drop_rate, use_bias = qkv_bias)(query = q, value = v, key = k) # results.shape = (batch * W, T * H, channel)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
-    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]))([results, shape2]) # results.shape = (batch, W, T, H, channel)
+    results = K.layers.Lambda(lambda x, d: K.ops.reshape(x[0], (x[1], x[2], x[3], x[4], d)), arguments = {'d': channel})([results, b, w, t, h]) # results.shape = (batch, W, T, H, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,2,3,1,4)))(results) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Add()([skip, results])
     # attention between w and t
     skip = results
     results = K.layers.LayerNormalization()(results) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,2,3,1,4)))(results) # results.shape = (batch, H, W, T, channel)
-    shape3 = K.layers.Lambda(lambda x: K.ops.shape(x))(results)
     results = K.layers.Lambda(lambda x: K.ops.reshape(x, (K.ops.shape(x)[0] * K.ops.shape(x)[1],
                                                           K.ops.shape(x)[2] * K.ops.shape(x)[3],
                                                           K.ops.shape(x)[4])))(results) # results.shape = (batch * H, W * T, channel)
@@ -95,7 +96,7 @@ def SABlock(**kwargs):
     q, k, v = K.layers.Lambda(lambda x, d: (x[...,0:d], x[...,d:2*d], x[...,2*d:3*d]), arguments = {'d': channel})(results)
     results = K.layers.MultiHeadAttention(num_heads = num_heads, key_dim = channel // num_heads, dropout = drop_rate, use_bias = qkv_bias)(query = q, value = v, key = k) # results.shape = (batch * H, W * T, channel)
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
-    results = K.layers.Lambda(lambda x: K.ops.reshape(x[0], x[1]))([results, shape3]) # results.shape = (batch, H, W, T, channel)
+    results = K.layers.Lambda(lambda x, d: K.ops.reshape(x[0], (x[1], x[2], x[3], x[4], d)), arguments = {'d': channel})([results, b, h, w, t]) # results.shape = (batch, H, W, T, channel)
     results = K.layers.Lambda(lambda x: K.ops.transpose(x, (0,3,1,2,4)))(results) # results.shape = (batch, T, H, W, channel)
     results = K.layers.Add()([skip, results])
     return K.Model(inputs = inputs, outputs = results)
