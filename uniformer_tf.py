@@ -32,6 +32,7 @@ def CBlock(**kwargs):
     skip = results
     results = tf.keras.layers.BatchNormalization()(results)
     results = tf.keras.layers.Conv3D(channel * mlp_ratio, kernel_size = (1,1,1), padding = 'same', activation = tf.keras.activations.gelu, groups = groups)(results)
+    results = tf.keras.layers.Dropout(rate = drop_rate)(results)
     results = tf.keras.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same', groups = groups)(results)
     results = tf.keras.layers.Dropout(rate = drop_rate)(results)
     if drop_path_rate > 0:
