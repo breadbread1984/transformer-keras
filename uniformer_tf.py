@@ -10,18 +10,19 @@ def CBlock(**kwargs):
     drop_path_rate = kwargs.get('drop_path_rate', 0.)
     mlp_ratio = kwargs.get('mlp_ratio', 4)
     drop_rate = kwargs.get('drop_rate', 0.)
+    groups = kwargs.get('groups', 1)
     # network
     inputs = tf.keras.Input((None, None, None, channel))
     # positional embedding
     skip = inputs
-    pos_embed = tf.keras.layers.Conv3D(channel, kernel_size = (3,3,3), padding = 'same')(inputs)
+    pos_embed = tf.keras.layers.Conv3D(channel, kernel_size = (3,3,3), padding = 'same', groups = groups)(inputs)
     results = tf.keras.layers.Add()([skip, pos_embed])
     # attention
     skip = results
     results = tf.keras.layers.BatchNormalization()(results)
-    results = tf.keras.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same')(results)
-    results = tf.keras.layers.Conv3D(channel, kernel_size = (5,5,5), padding = 'same')(results)
-    results = tf.keras.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same')(results)
+    results = tf.keras.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same', groups = groups)(results)
+    results = tf.keras.layers.Conv3D(channel, kernel_size = (5,5,5), padding = 'same', groups = groups)(results)
+    results = tf.keras.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same', groups = groups)(results)
     if drop_path_rate > 0:
         results = KCV.layers.DropPath(rate = drop_path_rate)(results)
     else:
@@ -30,8 +31,8 @@ def CBlock(**kwargs):
     # mlp
     skip = results
     results = tf.keras.layers.BatchNormalization()(results)
-    results = tf.keras.layers.Conv3D(channel * mlp_ratio, kernel_size = (1,1,1), padding = 'same', activation = tf.keras.activations.gelu)(results)
-    results = tf.keras.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same')(results)
+    results = tf.keras.layers.Conv3D(channel * mlp_ratio, kernel_size = (1,1,1), padding = 'same', activation = tf.keras.activations.gelu, groups = groups)(results)
+    results = tf.keras.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same', groups = groups)(results)
     results = tf.keras.layers.Dropout(rate = drop_rate)(results)
     if drop_path_rate > 0:
         results = KCV.layers.DropPath(rate = drop_path_rate)(results)
@@ -69,11 +70,12 @@ def SABlock(**kwargs):
     num_heads = kwargs.get('num_heads', 8)
     qkv_bias = kwargs.get('qkv_bias', False)
     drop_path_rate = kwargs.get('drop_path_rate', 0.)
+    groups = kwargs.get('groups', 1)
     # network
     inputs = tf.keras.Input((None, None, None, channel))
     # positional embedding
     skip = inputs
-    pos_embed = tf.keras.layers.Conv3D(channel, kernel_size = (3,3,3), padding = 'same')(inputs)
+    pos_embed = tf.keras.layers.Conv3D(channel, kernel_size = (3,3,3), padding = 'same', groups = groups)(inputs)
     results = tf.keras.layers.Add()([skip, pos_embed])
     # attention between h and w
     skip = results
@@ -125,6 +127,7 @@ def Uniformer(**kwargs):
     global_drop_path_rate = kwargs.get('global_drop_path_rate', 0.)
     qkv_bias = kwargs.get('qkv_bias', False)
     num_heads = kwargs.get('num_heads', 8)
+    groups = kwargs.get('groups', 1)
     assert len(hidden_channels) == len(depth)
     dpr = [x.item() for x in np.linspace(0, global_drop_path_rate, sum(depth))]
     # network
@@ -135,18 +138,18 @@ def Uniformer(**kwargs):
     # block 1
     for i in range(depth[0]):
         results = CBlock(channel = hidden_channels[0], drop_path_rate = dpr[i], **kwargs)(results)
-    results = tf.keras.layers.Conv3D(hidden_channels[1], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same')(results) # results.shape = (batch, t / 8, h / 8, w / 8, hidden_channels[1])
+    results = tf.keras.layers.Conv3D(hidden_channels[1], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same', groups = groups)(results) # results.shape = (batch, t / 8, h / 8, w / 8, hidden_channels[1])
     results = tf.keras.layers.LayerNormalization()(results)
     # block 2
     for i in range(depth[1]):
         results = CBlock(channel = hidden_channels[1], drop_path_rate = dpr[i], **kwargs)(results)
-    results = tf.keras.layers.Conv3D(hidden_channels[2], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same')(results) # results.shape = (batch, t / 16, h / 16, w / 16, hidden_channels[2])
+    results = tf.keras.layers.Conv3D(hidden_channels[2], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same', groups = groups)(results) # results.shape = (batch, t / 16, h / 16, w / 16, hidden_channels[2])
     results = tf.keras.layers.LayerNormalization()(results)
     # do attention only when the feature shape is small enough
     # block 3
     for i in range(depth[2]):
         results = SABlock(channel = hidden_channels[2], drop_path_rate = dpr[i], qkv_bias = qkv_bias, num_heads = num_heads, **kwargs)(results)
-    results = tf.keras.layers.Conv3D(hidden_channels[3], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same')(results) # results.shape = (batch, t / 32, h / 32, w / 32, hidden_channels[3])
+    results = tf.keras.layers.Conv3D(hidden_channels[3], kernel_size = (2, 2, 2), strides = (2, 2, 2), padding = 'same', groups = groups)(results) # results.shape = (batch, t / 32, h / 32, w / 32, hidden_channels[3])
     results = tf.keras.layers.LayerNormalization()(results)
     # block 4
     for i in range(depth[3]):
@@ -158,8 +161,8 @@ def Uniformer(**kwargs):
     return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
 
 if __name__ == "__main__":
-    inputs = np.random.normal(size = (1,64,64,64,3))
-    uniformer = Uniformer(in_channel = 3, out_channel = 100)
+    inputs = np.random.normal(size = (1,64,64,64,4))
+    uniformer = Uniformer(in_channel = 4, out_channel = 100, groups = 4)
     uniformer.save('uniformer.keras')
     outputs = uniformer(inputs)
     print(outputs.shape)
