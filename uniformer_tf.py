@@ -9,7 +9,7 @@ def CBlock(**kwargs):
     channel = kwargs.get('channel', 768)
     drop_path_rate = kwargs.get('drop_path_rate', 0.)
     mlp_ratio = kwargs.get('mlp_ratio', 4)
-    drop_rate = kwargs.get('drop_rate', 0.)
+    drop_rate = kwargs.get('drop_rate', 0.3)
     groups = kwargs.get('groups', 1)
     # network
     inputs = tf.keras.Input((None, None, None, channel))
@@ -67,6 +67,7 @@ def Attention(**kwargs):
 def SABlock(**kwargs):
     # args
     channel = kwargs.get('channel', 768)
+    mlp_ratio = kwargs.get('mlp_ratio', 4)
     drop_rate = kwargs.get('drop_rate', 0.3)
     num_heads = kwargs.get('num_heads', 8)
     qkv_bias = kwargs.get('qkv_bias', False)
@@ -114,6 +115,18 @@ def SABlock(**kwargs):
     results = KCV.layers.DropPath(rate = drop_path_rate)(results)
     results = tf.keras.layers.Lambda(lambda x: tf.reshape(x[0], x[1]), output_shape = (None, None, None, channel))([results, shape3]) # results.shape = (batch, H, W, T, channel)
     results = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,3,1,2,4)))(results) # results.shape = (batch, T, H, W, channel)
+    results = tf.keras.layers.Add()([skip, results])
+    # mlp
+    skip = results
+    results = tf.keras.layers.LayerNormalization()(results)
+    results = tf.keras.layers.Conv3D(channel * mlp_ratio, kernel_size = (1,1,1), padding = 'same', activation = tf.keras.activations.gelu, groups = groups)(results)
+    results = tf.keras.layers.Dropout(rate = drop_rate)(results)
+    results = tf.keras.layers.Conv3D(channel, kernel_size = (1,1,1), padding = 'same', groups = groups)(results)
+    results = tf.keras.layers.Dropout(rate = drop_rate)(results)
+    if drop_path_rate > 0:
+        results = KCV.layers.DropPath(rate = drop_path_rate)(results)
+    else:
+        results = tf.keras.layers.Identity()(results)
     results = tf.keras.layers.Add()([skip, results])
     return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
 
