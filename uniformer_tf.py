@@ -9,7 +9,7 @@ def CBlock(**kwargs):
     channel = kwargs.get('channel', 768)
     drop_path_rate = kwargs.get('drop_path_rate', 0.)
     mlp_ratio = kwargs.get('mlp_ratio', 4)
-    drop_rate = kwargs.get('drop_rate', 0.3)
+    drop_rate = kwargs.get('drop_rate', 0.1)
     groups = kwargs.get('groups', 1)
     # network
     inputs = tf.keras.Input((None, None, None, channel))
@@ -47,7 +47,7 @@ def Attention(**kwargs):
     channel = kwargs.get('channel', 768)
     num_heads = kwargs.get('num_heads', 8)
     qkv_bias = kwargs.get('qkv_bias', False)
-    drop_rate = kwargs.get('drop_rate', 0.3)
+    drop_rate = kwargs.get('drop_rate', 0.1)
     assert channel % num_heads == 0
     # network
     inputs = tf.keras.Input((None, channel)) # inputs.shape = (b, s, c)
@@ -68,7 +68,7 @@ def SABlock(**kwargs):
     # args
     channel = kwargs.get('channel', 768)
     mlp_ratio = kwargs.get('mlp_ratio', 4)
-    drop_rate = kwargs.get('drop_rate', 0.3)
+    drop_rate = kwargs.get('drop_rate', 0.1)
     num_heads = kwargs.get('num_heads', 8)
     qkv_bias = kwargs.get('qkv_bias', False)
     drop_path_rate = kwargs.get('drop_path_rate', 0.)
@@ -146,7 +146,7 @@ def Uniformer(**kwargs):
     hidden_channels = kwargs.get('hidden_channels', [64,128,320,512])
     depth = kwargs.get('depth', [5,8,20,7])
     mlp_ratio = kwargs.get('mlp_ratio', 4.)
-    drop_rate = kwargs.get('drop_rate', 0.3)
+    drop_rate = kwargs.get('drop_rate', 0.1)
     global_drop_path_rate = kwargs.get('global_drop_path_rate', 0.)
     qkv_bias = kwargs.get('qkv_bias', False)
     num_heads = kwargs.get('num_heads', 8)
@@ -183,9 +183,23 @@ def Uniformer(**kwargs):
     results = tf.keras.layers.Lambda(lambda x: tf.reduce_mean(x, axis = (1,2,3)))(results) # results.shape = (batch, out_channel)
     return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
 
+def UniformerSmall(**kwargs):
+    # args
+    hidden_channels = kwargs.get('hidden_channels', [64,128,320,512])
+    depth = kwargs.get('depth', [3,4,8,3])
+    # network
+    return Uniformer(hidden_channels = hidden_channels, depth = depth, **kwargs)
+
+def UniformerBase(**kwargs):
+    # args
+    hidden_channels = kwargs.get('hidden_channels', [64,128,320,512])
+    depth = kwargs.get('depth', [5,8,20,7])
+    # network
+    return Uniformer(hidden_channels = hidden_channels, depth = depth, **kwargs)
+
 if __name__ == "__main__":
     inputs = np.random.normal(size = (1,64,64,64,4))
-    uniformer = Uniformer(in_channel = 4, out_channel = 100, groups = 4)
+    uniformer = UniformerBase(in_channel = 4, out_channel = 100, groups = 4)
     uniformer.save('uniformer.keras')
     outputs = uniformer(inputs)
     print(outputs.shape)
