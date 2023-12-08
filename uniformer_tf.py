@@ -87,7 +87,10 @@ def SABlock(**kwargs):
                                                           tf.shape(x)[2] * tf.shape(x)[3],
                                                           tf.shape(x)[4])))(results) # results.shape = (batch * T, H * W, channel)
     results = Attention(**kwargs)(results)
-    results = KCV.layers.DropPath(rate = drop_path_rate)(results)
+    if drop_path_rate > 0:
+        results = KCV.layers.DropPath(rate = drop_path_rate)(results)
+    else:
+        results = tf.keras.layers.Identity()(results)
     results = tf.keras.layers.Lambda(lambda x: tf.reshape(x[0], x[1]), output_shape = (None, None, None, channel))([results, shape1]) # results.shape = (batch, T, H, W, channel)
     results = tf.keras.layers.Add()([skip, results])
     # attention between t and h
@@ -99,7 +102,10 @@ def SABlock(**kwargs):
                                                           tf.shape(x)[2] * tf.shape(x)[3],
                                                           tf.shape(x)[4])))(results) # results.shape = (batch * W, T * H, channel)
     results = Attention(**kwargs)(results)
-    results = KCV.layers.DropPath(rate = drop_path_rate)(results)
+    if drop_path_rate > 0:
+        results = KCV.layers.DropPath(rate = drop_path_rate)(results)
+    else:
+        results = tf.keras.layers.Identity()(results)
     results = tf.keras.layers.Lambda(lambda x: tf.reshape(x[0], x[1]), output_shape = (None, None, None, channel))([results, shape2]) # results.shape = (batch, W, T, H, channel)
     results = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,2,3,1,4)))(results) # results.shape = (batch, T, H, W, channel)
     results = tf.keras.layers.Add()([skip, results])
@@ -112,7 +118,10 @@ def SABlock(**kwargs):
                                                           tf.shape(x)[2] * tf.shape(x)[3],
                                                           tf.shape(x)[4])))(results) # results.shape = (batch * H, W * T, channel)
     results = Attention(**kwargs)(results)
-    results = KCV.layers.DropPath(rate = drop_path_rate)(results)
+    if drop_path_rate > 0:
+        results = KCV.layers.DropPath(rate = drop_path_rate)(results)
+    else:
+        results = tf.keras.layers.Identity()(results)
     results = tf.keras.layers.Lambda(lambda x: tf.reshape(x[0], x[1]), output_shape = (None, None, None, channel))([results, shape3]) # results.shape = (batch, H, W, T, channel)
     results = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0,3,1,2,4)))(results) # results.shape = (batch, T, H, W, channel)
     results = tf.keras.layers.Add()([skip, results])
