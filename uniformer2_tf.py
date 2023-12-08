@@ -2,7 +2,7 @@
 
 import numpy as np
 import tensorflow as tf
-from vit_keras import vit
+import keras_cv
 
-model = vit.vit_b16(image_size = 384, activation = 'sigmoid', pretrained = True, include_top = False, pretrained_top = False)
+model = keras_cv.models.ViTDetBackbone.from_preset("vitdet_base_sa1b")
 model.save('vit_b16.keras')
