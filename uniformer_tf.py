@@ -154,7 +154,7 @@ def Uniformer(**kwargs):
     results = tf.keras.layers.BatchNormalization()(results) # results.shape = (batch, t / 32, h / 32, w / 32, hidden_channels[3])
     if out_channel is not None:
         results = tf.keras.layers.Dense(out_channel, activation = tf.keras.activations.tanh)(results) # results.shape = (batch, t / 32, h / 32, w / 32, out_channel)
-    results = tf.keras.layers.Lambda(lambda x: tf.mean(x, axis = (1,2,3)))(results) # results.shape = (batch, out_channel)
+    results = tf.keras.layers.Lambda(lambda x: tf.reduce_mean(x, axis = (1,2,3)))(results) # results.shape = (batch, out_channel)
     return tf.keras.Model(inputs = inputs, outputs = results, name = kwargs.get('name', None))
 
 if __name__ == "__main__":
